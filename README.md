@@ -1,7 +1,5 @@
 # Bio-DNA OS
 
-**Lead Researcher:** Nikhil Chapkanade | **PRN:** 20230802111
-
 **Bio-DNA OS** is an advanced, production-grade Data Observability and Lineage Integrity Framework optimized specifically for High-Throughput Proteomic Screening, Computational Drug Discovery, and Nutritional Bioactive Peptide pipelines.
 
 ---
