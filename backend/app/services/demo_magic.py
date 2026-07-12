@@ -220,25 +220,46 @@ def run_magic_demo(db: Session) -> dict:
     _upsert_lineage_edge(db, peptide_struct.name, tnf_matrix.name, False, "Molecular docking simulation endpoint blocked by missing 3D coordinate inputs")
     db.flush()
 
+    # Fetch real PDB structures using ESMFoldClient
+    import asyncio
+    from app.services.esmfold_client import ESMFoldClient
+    
+    esm_client = ESMFoldClient()
+    peptide_seq_str = "MGDVEKGKKIFIMKCSQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGYSYTAANKNKGIIWGEDTLMEYLENPKKYIPGTKMIFVGIKKKEERADLIAYLKKATNE"
+    try:
+        loop = asyncio.new_event_loop()
+        peptide_pdb = loop.run_until_complete(esm_client.fold_sequence(peptide_seq_str))
+        neuro_pdb = loop.run_until_complete(esm_client.fold_sequence("MGDVEKGKK"))
+        loop.close()
+    except Exception as exc:
+        print(f"[demo_magic] ESMFold call failed, using fallback: {exc}")
+        peptide_pdb = "HEADER Fallback PDB"
+        neuro_pdb = "HEADER Fallback PDB"
+
     # Gene schemas
     fasta_base_schema = [
         {"name": "sequence_id", "type": "string", "nullable": False},
-        {"name": "peptide_sequence", "type": "string", "nullable": False},
+        {"name": "peptide_sequence", "type": "string", "nullable": False, "value": peptide_seq_str},
         {"name": "format", "type": "string", "nullable": False},
-        {"name": "residue_count", "type": "integer", "nullable": False},
+        {"name": "residue_count", "type": "integer", "nullable": False, "value": len(peptide_seq_str)},
         {"name": "source_organism", "type": "string", "nullable": False},
     ]
     fasta_mutated_schema = [
         {"name": "sequence_id", "type": "string", "nullable": False},
-        {"name": "peptide_sequence", "type": "string", "nullable": False},
+        {"name": "peptide_sequence", "type": "string", "nullable": False, "value": peptide_seq_str},
         {"name": "conformation_format", "type": "string", "nullable": False},
-        {"name": "residue_count", "type": "integer", "nullable": False},
+        {"name": "residue_count", "type": "integer", "nullable": False, "value": len(peptide_seq_str)},
         {"name": "source_organism", "type": "string", "nullable": False},
     ]
     alphafold_schema = [
         {"name": "coordinate_id", "type": "string", "nullable": False},
-        {"name": "pdb_raw_content", "type": "string", "nullable": False},
-        {"name": "plddt_confidence", "type": "double", "nullable": False},
+        {"name": "pdb_raw_content", "type": "string", "nullable": False, "value": peptide_pdb[:350] + "\n... (truncated)"},
+        {"name": "plddt_confidence", "type": "double", "nullable": False, "value": 91.2},
+    ]
+    neuro_alphafold_schema = [
+        {"name": "coordinate_id", "type": "string", "nullable": False},
+        {"name": "pdb_raw_content", "type": "string", "nullable": False, "value": neuro_pdb[:350] + "\n... (truncated)"},
+        {"name": "plddt_confidence", "type": "double", "nullable": False, "value": 88.4},
     ]
     docking_schema = [
         {"name": "ligand_id", "type": "string", "nullable": False},
@@ -262,7 +283,7 @@ def run_magic_demo(db: Session) -> dict:
             dataset_id=neuro_struct.id,
             captured_at=event_time,
             trust_score=92.0,
-            schema_gene=alphafold_schema,
+            schema_gene=neuro_alphafold_schema,
             lineage_gene=[{"source": neuro_struct.name, "target": dopamine_matrix.name, "is_active": True}],
             usage_gene={"weekly_queries": 1800, "consumers": 12, "last_accessed": event_time.isoformat()},
             owner=neuro_struct.owner,

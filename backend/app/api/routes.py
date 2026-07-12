@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -11,6 +12,7 @@ from app.services.agents.orchestrator import AgentOrchestrator
 from app.services.demo_magic import current_metrics, run_magic_demo, severity_from_score
 from app.services.ingestion import MetadataIngestionService
 from app.services.temporal_engine import compute_lineage_diff, compute_schema_diff
+from app.services.esmfold_client import ESMFoldClient
 
 router = APIRouter()
 
@@ -269,3 +271,21 @@ async def refresh_openmetadata(db: Session = Depends(get_db)):
 @router.post("/demo/magic-run")
 async def demo_magic_run(db: Session = Depends(get_db)):
     return run_magic_demo(db)
+
+
+class FoldRequest(BaseModel):
+    sequence: str
+
+
+@router.post("/prediction/fold")
+async def predict_folding(req: FoldRequest):
+    client = ESMFoldClient()
+    try:
+        pdb_content = await client.fold_sequence(req.sequence)
+        return {
+            "status": "success",
+            "sequence": req.sequence,
+            "pdb_content": pdb_content,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
