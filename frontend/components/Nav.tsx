@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  ["/", "Dashboard"],
+  ["/", "AlphaEvolve Studio"],
   ["/graph", "Bio-DNA Graph"],
   ["/timeline", "Timeline"],
   ["/copilot", "Chat Copilot"],

@@ -13,6 +13,8 @@ from app.services.demo_magic import current_metrics, run_magic_demo, severity_fr
 from app.services.ingestion import MetadataIngestionService
 from app.services.temporal_engine import compute_lineage_diff, compute_schema_diff
 from app.services.esmfold_client import ESMFoldClient
+from app.services.alphaevolve_engine import AlphaEvolveEngine
+from app.services.denovo_designer import DeNovoDesigner
 
 router = APIRouter()
 
@@ -289,3 +291,39 @@ async def predict_folding(req: FoldRequest):
         }
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/alphaevolve/targets")
+def get_alphaevolve_targets():
+    engine = AlphaEvolveEngine()
+    return {"targets": engine.list_targets()}
+
+
+class AlphaEvolveSimulateRequest(BaseModel):
+    target_id: str = "egfr_kinase"
+    generation: int = 6
+
+
+@router.post("/alphaevolve/simulate")
+def simulate_alphaevolve(req: AlphaEvolveSimulateRequest):
+    engine = AlphaEvolveEngine()
+    return engine.simulate_evolution(req.target_id, req.generation)
+
+
+class DeNovoDesignRequest(BaseModel):
+    target_id: str = "egfr_kinase"
+    generation: int = 6
+
+
+@router.post("/denovo/design")
+def design_denovo(req: DeNovoDesignRequest):
+    engine = AlphaEvolveEngine()
+    sim_data = engine.simulate_evolution(req.target_id, req.generation)
+    designer = DeNovoDesigner()
+    candidates = designer.design_candidates(req.target_id, req.generation, sim_data["active_mutations"])
+    return {
+        "target_id": req.target_id,
+        "generation": req.generation,
+        "active_mutations": sim_data["active_mutations"],
+        "candidates": candidates,
+    }
